@@ -3,6 +3,7 @@ class AppState {
     constructor() {
         this.currentUser = null;
         this.loadUserData();
+        this.loadPlanData();
     }
 
     loadUserData() {
@@ -28,6 +29,24 @@ class AppState {
 
     saveUsers() {
         localStorage.setItem('users', JSON.stringify(this.users));
+    }
+
+    loadPlanData() {
+        const stored = localStorage.getItem('plans');
+        this.plans = stored ? JSON.parse(stored) : this.getDefaultPlans();
+    }
+
+    getDefaultPlans() {
+        return [
+            { id: 1, name: 'Padrão 30 minutos', value: 30, unit: 'minutes' },
+            { id: 2, name: 'Diário', value: 1, unit: 'days' },
+            { id: 3, name: 'Semanal', value: 1, unit: 'weeks' },
+            { id: 4, name: 'Mensal', value: 1, unit: 'months' }
+        ];
+    }
+
+    savePlans() {
+        localStorage.setItem('plans', JSON.stringify(this.plans));
     }
 
     setCurrentUser(user) {
@@ -64,6 +83,10 @@ class CentralApp {
         // CREATE USER FORM
         document.getElementById('createUserForm').addEventListener('submit', (e) => this.handleCreateUser(e));
 
+        // PLANOS
+        const createPlanForm = document.getElementById('createPlanForm');
+        if (createPlanForm) createPlanForm.addEventListener('submit', (e) => this.handleCreatePlan(e));
+
         // SEARCH USERS
         document.getElementById('searchUsers').addEventListener('input', (e) => this.filterUsers(e.target.value));
 
@@ -96,6 +119,9 @@ class CentralApp {
         document.getElementById('currentUser').textContent = this.state.currentUser.username;
         this.loadUsersTable();
         this.updateSettings();
+        this.populatePlanSelect();
+        this.loadPlansTable();
+        this.loadToolsManifest();
     }
 
     // ==================== LOGIN ====================
@@ -132,7 +158,13 @@ class CentralApp {
         e.preventDefault();
         const username = document.getElementById('newUsername').value.trim();
         const password = document.getElementById('newPassword').value;
-        const loginTime = parseInt(document.getElementById('newLoginTime').value) || 30;
+        const selectedPlanId = document.getElementById('planSelect') ? document.getElementById('planSelect').value : 'custom';
+        const customTime = parseInt(document.getElementById('newLoginTime').value) || 30;
+        let loginTime = customTime;
+        if (selectedPlanId && selectedPlanId !== 'custom') {
+            const plan = this.state.plans.find(p => String(p.id) === String(selectedPlanId));
+            if (plan) loginTime = this.convertPlanToMinutes(plan);
+        }
 
         const errorDiv = document.getElementById('createError');
         const successDiv = document.getElementById('createSuccess');
@@ -175,6 +207,9 @@ class CentralApp {
 
         document.getElementById('createUserForm').reset();
         document.getElementById('newLoginTime').value = '30';
+
+        // repopular select caso tenha planos novos
+        this.populatePlanSelect();
 
         setTimeout(() => {
             successDiv.classList.remove('show');
@@ -297,6 +332,137 @@ class CentralApp {
 
         const dataSize = (new Blob([JSON.stringify(this.state.users)]).size / 1024).toFixed(2);
         document.getElementById('spaceUsed').textContent = `${dataSize} KB`;
+    }
+
+    // ==================== PLANOS ====================
+    convertPlanToMinutes(plan) {
+        const v = Number(plan.value) || 0;
+        switch (plan.unit) {
+            case 'minutes': return Math.max(1, Math.round(v));
+            case 'hours': return Math.max(1, Math.round(v * 60));
+            case 'days': return Math.max(1, Math.round(v * 24 * 60));
+            case 'weeks': return Math.max(1, Math.round(v * 7 * 24 * 60));
+            case 'months': return Math.max(1, Math.round(v * 30 * 24 * 60));
+            default: return Math.max(1, Math.round(v));
+        }
+    }
+
+    populatePlanSelect() {
+        const select = document.getElementById('planSelect');
+        if (!select) return;
+        select.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = 'custom';
+        placeholder.textContent = '— Selecionar plano (ou usar custom) —';
+        select.appendChild(placeholder);
+
+        this.state.plans.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `${p.name} (${p.value} ${p.unit})`;
+            select.appendChild(opt);
+        });
+
+        const customOpt = document.createElement('option');
+        customOpt.value = 'custom';
+        customOpt.textContent = 'Custom (minutos)';
+        select.appendChild(customOpt);
+    }
+
+    handleCreatePlan(e) {
+        e.preventDefault();
+        const name = document.getElementById('planName').value.trim();
+        const value = parseInt(document.getElementById('planValue').value) || 1;
+        const unit = document.getElementById('planUnit').value;
+        const msg = document.getElementById('planMsg');
+
+        if (!name) {
+            msg.textContent = 'Nome do plano é obrigatório';
+            msg.classList.add('show');
+            return;
+        }
+
+        const plan = { id: Date.now(), name, value, unit };
+        this.state.plans.push(plan);
+        this.state.savePlans();
+        msg.textContent = `Plano "${name}" criado.`;
+        msg.classList.add('show');
+        document.getElementById('createPlanForm').reset();
+        this.populatePlanSelect();
+        this.loadPlansTable();
+        setTimeout(() => msg.classList.remove('show'), 2000);
+    }
+
+    loadPlansTable() {
+        const tbody = document.getElementById('plansTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (!this.state.plans || this.state.plans.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999">Nenhum plano</td></tr>';
+            return;
+        }
+        this.state.plans.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${p.name}</strong></td>
+                <td>${p.value} ${p.unit}</td>
+                <td>
+                    <button class="button-small delete" onclick="app.deletePlan(${p.id})">🗑️ Deletar</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    deletePlan(id) {
+        if (!confirm('Deletar este plano?')) return;
+        this.state.plans = this.state.plans.filter(p => p.id !== id);
+        this.state.savePlans();
+        this.populatePlanSelect();
+        this.loadPlansTable();
+    }
+
+    // ==================== FERRAMENTAS / SITES ====================
+    async loadToolsManifest() {
+        try {
+            const res = await fetch('Ferramentas/manifest.json', { cache: 'no-cache' });
+            if (!res.ok) throw new Error('Manifest não encontrado');
+            const json = await res.json();
+            this.tools = Array.isArray(json) ? json : (json.tools || []);
+            this.renderToolsList();
+        } catch (err) {
+            const container = document.getElementById('toolsList');
+            if (container) container.innerHTML = '<div style="color:#999">Nenhum manifest de ferramentas (Ferramentas/manifest.json)</div>';
+        }
+    }
+
+    renderToolsList() {
+        const container = document.getElementById('toolsList');
+        if (!container) return;
+        container.innerHTML = '';
+        if (!this.tools || this.tools.length === 0) {
+            container.innerHTML = '<div style="color:#999">Nenhuma ferramenta registrada.</div>';
+            return;
+        }
+        this.tools.forEach(t => {
+            const b = document.createElement('button');
+            b.className = 'menu-item';
+            b.style.display = 'inline-flex';
+            b.style.alignItems = 'center';
+            b.textContent = t.name || t.id || t.path;
+            b.onclick = () => this.openTool(t.path, t.name || t.path);
+            container.appendChild(b);
+        });
+    }
+
+    openTool(path, name) {
+        const frame = document.getElementById('toolFrame');
+        const container = document.getElementById('toolFrameContainer');
+        const title = document.getElementById('toolFrameTitle');
+        if (!frame || !container) return;
+        frame.src = path;
+        title.textContent = name;
+        container.style.display = '';
     }
 
     exportData() {

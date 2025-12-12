@@ -63,6 +63,12 @@
                     <button class="menu-item" data-tab="create">
                         ➕ Criar Usuário
                     </button>
+                    <button class="menu-item" data-tab="plans">
+                        📦 Planos
+                    </button>
+                    <button class="menu-item" data-tab="tools">
+                        🧰 Ferramentas
+                    </button>
                     <button class="menu-item" data-tab="settings">
                         ⚙️ Configurações
                     </button>
@@ -128,17 +134,23 @@
                                 class="input-field"
                             >
                         </div>
-                        <div class="form-group">
-                            <label for="newLoginTime">Tempo de Login (minutos):</label>
-                            <input 
-                                type="number" 
-                                id="newLoginTime" 
-                                placeholder="Ex: 30" 
-                                value="30" 
-                                min="1"
-                                class="input-field"
-                            >
-                        </div>
+                            <div class="form-group">
+                                <label for="planSelect">Plano de Login:</label>
+                                <select id="planSelect" class="input-field">
+                                    <!-- será preenchido via JS com os planos disponíveis -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newLoginTime">Ou tempo customizado (minutos):</label>
+                                <input 
+                                    type="number" 
+                                    id="newLoginTime" 
+                                    placeholder="Ex: 30" 
+                                    value="30" 
+                                    min="1"
+                                    class="input-field"
+                                >
+                            </div>
                         <div id="createError" class="error-message"></div>
                         <div id="createSuccess" class="success-message"></div>
                         <button type="submit" class="button-submit">Criar Usuário</button>
@@ -176,6 +188,57 @@
                         </button>
                     </div>
                 </div>
+
+                    <!-- TAB: PLANOS -->
+                    <div class="tab-content" id="plans-tab">
+                        <div class="tab-header">
+                            <h3>Gerenciar Planos</h3>
+                        </div>
+                        <form id="createPlanForm" class="user-form">
+                            <div class="form-group">
+                                <label for="planName">Nome do Plano:</label>
+                                <input type="text" id="planName" placeholder="Ex: Mensal" class="input-field" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="planValue">Duração:</label>
+                                <div style="display:flex; gap:8px;">
+                                    <input type="number" id="planValue" value="1" min="1" class="input-field" style="flex:1">
+                                    <select id="planUnit" class="input-field" style="width:140px">
+                                        <option value="minutes">Minutos</option>
+                                        <option value="hours">Horas</option>
+                                        <option value="days">Dias</option>
+                                        <option value="weeks">Semanas</option>
+                                        <option value="months">Meses</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="planMsg" class="success-message"></div>
+                            <button type="submit" class="button-submit">Criar Plano</button>
+                        </form>
+
+                        <div style="margin-top:20px">
+                            <h4>Planos Existentes</h4>
+                            <table class="users-table">
+                                <thead><tr><th>Plano</th><th>Duração</th><th>Ações</th></tr></thead>
+                                <tbody id="plansTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB: FERRAMENTAS -->
+                    <div class="tab-content" id="tools-tab">
+                        <div class="tab-header">
+                            <h3>Ferramentas / Sites</h3>
+                        </div>
+                        <div class="form-group">
+                            <p>Coloque pastas dentro de <strong>Ferramentas/</strong> e registre-as em <strong>Ferramentas/manifest.json</strong>. Clique para abrir dentro do dashboard.</p>
+                        </div>
+                        <div id="toolsList" style="display:flex; gap:12px; flex-wrap:wrap"></div>
+                        <div id="toolFrameContainer" style="margin-top:20px; display:none">
+                            <h4 id="toolFrameTitle"></h4>
+                            <iframe id="toolFrame" src="" style="width:100%; height:600px; border:1px solid #ddd; border-radius:8px"></iframe>
+                        </div>
+                    </div>
 
             </main>
         </div>

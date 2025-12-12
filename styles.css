@@ -357,14 +357,17 @@ label {
 
 /* SIDEBAR */
 .sidebar {
-    width: 250px;
+    width: 220px;
     background: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    height: fit-content;
-    position: sticky;
-    top: 100px;
+    border-radius: 0;
+    padding: 18px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 90;
 }
 
 .sidebar.collapsed {
@@ -387,6 +390,11 @@ label {
     border-radius: 12px;
     padding: 30px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* quando a sidebar estiver presente, deslocar conteúdo principal */
+.main-content {
+    margin-left: 240px;
 }
 
 .main-content.full-width {

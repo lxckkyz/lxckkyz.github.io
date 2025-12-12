@@ -151,17 +151,21 @@ class CentralApp {
             openBtn.textContent = 'Abrir';
             openBtn.onclick = () => this.openManagedSite(s.id);
 
-            const editBtn = document.createElement('button');
-            editBtn.className = 'button-small';
-            editBtn.textContent = 'Editar';
-            editBtn.onclick = () => this.openSiteEditor(s.id);
+            actions.appendChild(openBtn);
+            // só mostrar editar/deletar para admin
+            if (this.state.currentUser && this.state.currentUser.isAdmin) {
+                const editBtn = document.createElement('button');
+                editBtn.className = 'button-small';
+                editBtn.textContent = 'Editar';
+                editBtn.onclick = () => this.openSiteEditor(s.id);
 
-            const delBtn = document.createElement('button');
-            delBtn.className = 'button-small delete';
-            delBtn.textContent = 'Deletar';
-            delBtn.onclick = async () => { if (confirm('Deletar site?')) { await this.dbDelete(s.id); await this.loadManagedSites(); }};
+                const delBtn = document.createElement('button');
+                delBtn.className = 'button-small delete';
+                delBtn.textContent = 'Deletar';
+                delBtn.onclick = async () => { if (confirm('Deletar site?')) { await this.dbDelete(s.id); await this.loadManagedSites(); }};
 
-            actions.appendChild(openBtn); actions.appendChild(editBtn); actions.appendChild(delBtn);
+                actions.appendChild(editBtn); actions.appendChild(delBtn);
+            }
 
             row.appendChild(info); row.appendChild(actions);
             container.appendChild(row);
@@ -514,22 +518,22 @@ class CentralApp {
             return;
         }
 
+        const isAdmin = !!(this.state.currentUser && this.state.currentUser.isAdmin);
         users.forEach(user => {
             const tr = document.createElement('tr');
+            let actions = '';
+            if (isAdmin) {
+                actions = `
+                    <div class="action-buttons">
+                        <button class="button-small" onclick="app.editLoginTime('${user.username}', ${user.loginTime})">⏱️ Tempo</button>
+                        <button class="button-small delete" onclick="app.deleteUser('${user.username}')">🗑️ Deletar</button>
+                    </div>`;
+            }
             tr.innerHTML = `
                 <td><strong>${user.username}</strong></td>
                 <td>${user.loginTime}</td>
                 <td>${new Date(user.createdAt).toLocaleDateString('pt-BR')}</td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="button-small" onclick="app.editLoginTime('${user.username}', ${user.loginTime})">
-                            ⏱️ Tempo
-                        </button>
-                        <button class="button-small delete" onclick="app.deleteUser('${user.username}')">
-                            🗑️ Deletar
-                        </button>
-                    </div>
-                </td>
+                <td>${actions}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -594,6 +598,21 @@ class CentralApp {
 
     // ==================== TAB SWITCHING ====================
     switchTab(menuItem) {
+        // verificar permissão por role (data-role)
+        const required = menuItem.dataset.role;
+        if (required === 'admin' && !(this.state.currentUser && this.state.currentUser.isAdmin)) {
+            alert('Acesso negado: apenas administradores podem abrir esta aba.');
+            const toolsBtn = document.querySelector('.menu-item[data-tab="tools"]');
+            if (toolsBtn) {
+                // ativa aba tools
+                document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+                toolsBtn.classList.add('active');
+                document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+                const tabElement = document.getElementById('tools-tab');
+                if (tabElement) tabElement.classList.add('active');
+            }
+            return;
+        }
         // Remove active de todos os menu items
         document.querySelectorAll('.menu-item').forEach(item => {
             item.classList.remove('active');
@@ -779,15 +798,17 @@ class CentralApp {
             tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999">Nenhum plano</td></tr>';
             return;
         }
+        const isAdmin = !!(this.state.currentUser && this.state.currentUser.isAdmin);
         this.state.plans.forEach(p => {
             const tr = document.createElement('tr');
+            let actionsHtml = '';
+            if (isAdmin) {
+                actionsHtml = `<button class="button-small" onclick="app.editPlan(${p.id})">✏️ Editar</button> <button class="button-small delete" onclick="app.deletePlan(${p.id})">🗑️ Deletar</button>`;
+            }
             tr.innerHTML = `
                 <td><strong>${p.name}</strong></td>
                 <td>${p.value} ${p.unit}</td>
-                <td>
-                    <button class="button-small" onclick="app.editPlan(${p.id})">✏️ Editar</button>
-                    <button class="button-small delete" onclick="app.deletePlan(${p.id})">🗑️ Deletar</button>
-                </td>
+                <td>${actionsHtml}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -796,6 +817,7 @@ class CentralApp {
     // ==================== FERRAMENTAS LOCAIS (fallback) ====================
     handleAddTool(e) {
         e.preventDefault();
+        if (!(this.state.currentUser && this.state.currentUser.isAdmin)) return alert('Apenas administradores podem adicionar ferramentas.');
         const name = document.getElementById('toolName').value.trim();
         const path = document.getElementById('toolPath').value.trim();
         if (!name || !path) return;
@@ -822,6 +844,7 @@ class CentralApp {
 
     // permitir remover ferramentas locais
     removeLocalTool(id) {
+        if (!(this.state.currentUser && this.state.currentUser.isAdmin)) return alert('Apenas administradores podem remover ferramentas.');
         const stored = localStorage.getItem('localTools');
         const arr = stored ? JSON.parse(stored) : [];
         const filtered = arr.filter(x => x.id !== id);
@@ -866,6 +889,7 @@ class CentralApp {
     // ------------------ HANDLERS DE UI SITES ------------------
     async handleImportSite(e) {
         e.preventDefault();
+        if (!(this.state.currentUser && this.state.currentUser.isAdmin)) return alert('Apenas administradores podem importar sites.');
         const input = document.getElementById('siteFileInput');
         if (!input || !input.files || input.files.length === 0) return alert('Selecione um arquivo ZIP ou HTML');
         const file = input.files[0];
@@ -881,6 +905,7 @@ class CentralApp {
 
     async handleCreateSiteManual(e) {
         e.preventDefault();
+        if (!(this.state.currentUser && this.state.currentUser.isAdmin)) return alert('Apenas administradores podem criar sites.');
         const name = prompt('Nome do site:');
         if (!name) return;
         const id = Date.now();
@@ -898,6 +923,7 @@ class CentralApp {
             container.innerHTML = '<div style="color:#999">Nenhuma ferramenta registrada.</div>';
             return;
         }
+        const isAdmin = !!(this.state.currentUser && this.state.currentUser.isAdmin);
         this.tools.forEach(t => {
             const wrap = document.createElement('div');
             wrap.style.display = 'inline-flex';
@@ -912,7 +938,7 @@ class CentralApp {
             wrap.appendChild(b);
 
             // se a ferramenta tiver um id (local), permitir remoção
-            if (t.local) {
+            if (t.local && isAdmin) {
                 const del = document.createElement('button');
                 del.className = 'button-small delete';
                 del.textContent = '🗑️';
@@ -968,4 +994,5 @@ class CentralApp {
 let app;
 document.addEventListener('DOMContentLoaded', () => {
     app = new CentralApp();
+});
 });

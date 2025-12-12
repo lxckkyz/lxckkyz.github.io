@@ -45,7 +45,10 @@
     <div id="adminPage" class="page">
         <nav class="navbar">
             <div class="navbar-content">
-                <h2>Dashboard Admin</h2>
+                <div style="display:flex; align-items:center; gap:12px">
+                    <button id="sidebarToggle" class="button-small" style="padding:8px 10px">☰</button>
+                    <h2>Dashboard Admin</h2>
+                </div>
                 <div class="navbar-user">
                     <span id="currentUser" class="user-name"></span>
                     <button id="logoutBtn" class="button-logout">Sair</button>
@@ -139,6 +142,17 @@
                                 <select id="planSelect" class="input-field" required>
                                     <!-- será preenchido via JS com os planos disponíveis -->
                                 </select>
+                            </div>
+                            <div class="form-group" id="customTimeGroup" style="display:none">
+                                <label for="newLoginTime">Tempo custom (minutos):</label>
+                                <input 
+                                    type="number" 
+                                    id="newLoginTime" 
+                                    placeholder="Ex: 30" 
+                                    value="30" 
+                                    min="1"
+                                    class="input-field"
+                                >
                             </div>
                         <div id="createError" class="error-message"></div>
                         <div id="createSuccess" class="success-message"></div>

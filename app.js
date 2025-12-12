@@ -90,9 +90,22 @@ class CentralApp {
         const cancelPlanBtn = document.getElementById('cancelPlanBtn');
         if (cancelPlanBtn) cancelPlanBtn.addEventListener('click', () => this.cancelPlanEdit());
 
-        // remover estilo inválido quando selecionar um plano
+        // remover estilo inválido quando selecionar um plano e mostrar campo custom
         const planSelect = document.getElementById('planSelect');
-        if (planSelect) planSelect.addEventListener('change', (e) => e.target.classList.remove('invalid'));
+        if (planSelect) {
+            planSelect.addEventListener('change', (e) => {
+                e.target.classList.remove('invalid');
+                const customInput = document.getElementById('newLoginTime');
+                if (!customInput) return;
+                if (e.target.value === 'custom') {
+                    customInput.style.display = '';
+                    customInput.disabled = false;
+                } else {
+                    customInput.style.display = 'none';
+                    customInput.disabled = true;
+                }
+            });
+        }
 
         // FERRAMENTAS (adicionar via dashboard)
         const addToolForm = document.getElementById('addToolForm');
@@ -109,6 +122,18 @@ class CentralApp {
         document.querySelector('.modal-close').addEventListener('click', () => this.closeModal());
         document.getElementById('cancelTimeBtn').addEventListener('click', () => this.closeModal());
         document.getElementById('saveTimeBtn').addEventListener('click', () => this.saveLoginTime());
+
+        // SIDEBAR TOGGLE
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        if (sidebarToggle) sidebarToggle.addEventListener('click', () => this.toggleSidebar());
+    }
+
+    toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const main = document.querySelector('.main-content');
+        if (!sidebar || !main) return;
+        sidebar.classList.toggle('collapsed');
+        main.classList.toggle('full-width');
     }
 
     checkAuthStatus() {
@@ -147,7 +172,7 @@ class CentralApp {
 
         const user = this.state.users.find(u => u.username === username && u.password === password);
 
-        if (user && user.isAdmin) {
+        if (user) {
             this.state.setCurrentUser(user);
             document.getElementById('loginForm').reset();
             this.showAdminPage();
@@ -180,8 +205,19 @@ class CentralApp {
             if (sel) sel.classList.add('invalid');
             return;
         }
-        const plan = this.state.plans.find(p => String(p.id) === String(selectedPlanId));
-        if (plan) loginTime = this.convertPlanToMinutes(plan);
+        if (selectedPlanId === 'custom') {
+            const customTime = parseInt(document.getElementById('newLoginTime').value) || 0;
+            if (customTime < 1) {
+                const errorDiv = document.getElementById('createError');
+                errorDiv.textContent = 'Tempo custom deve ser pelo menos 1 minuto.';
+                errorDiv.classList.add('show');
+                return;
+            }
+            loginTime = customTime;
+        } else {
+            const plan = this.state.plans.find(p => String(p.id) === String(selectedPlanId));
+            if (plan) loginTime = this.convertPlanToMinutes(plan);
+        }
 
         const errorDiv = document.getElementById('createError');
         const successDiv = document.getElementById('createSuccess');
@@ -378,6 +414,11 @@ class CentralApp {
             opt.textContent = `${p.name} (${p.value} ${p.unit})`;
             select.appendChild(opt);
         });
+        // opção custom para permitir tempo manual
+        const customOpt = document.createElement('option');
+        customOpt.value = 'custom';
+        customOpt.textContent = 'Custom (minutos)';
+        select.appendChild(customOpt);
     }
 
     handleCreatePlan(e) {

@@ -64,8 +64,199 @@ class AppState {
 class CentralApp {
     constructor() {
         this.state = new AppState();
+        this.db = null; // IndexedDB reference for sites
         this.initEventListeners();
         this.checkAuthStatus();
+        this.initSitesDB();
+    }
+
+    // ------------------ SITES DB (IndexedDB) ------------------
+    initSitesDB() {
+        const req = indexedDB.open('sites-db', 1);
+        req.onupgradeneeded = (ev) => {
+            const db = ev.target.result;
+            if (!db.objectStoreNames.contains('sites')) {
+                db.createObjectStore('sites', { keyPath: 'id' });
+            }
+        };
+        req.onsuccess = (ev) => { this.db = ev.target.result; this.loadManagedSites(); };
+        req.onerror = () => { console.warn('IndexedDB não disponível'); };
+    }
+
+    dbPut(site) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) return reject(new Error('DB não inicializado'));
+            const tx = this.db.transaction('sites', 'readwrite');
+            const store = tx.objectStore('sites');
+            const req = store.put(site);
+            req.onsuccess = () => resolve(site);
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    dbGetAll() {
+        return new Promise((resolve, reject) => {
+            if (!this.db) return resolve([]);
+            const tx = this.db.transaction('sites', 'readonly');
+            const store = tx.objectStore('sites');
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    dbDelete(id) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) return resolve();
+            const tx = this.db.transaction('sites', 'readwrite');
+            const store = tx.objectStore('sites');
+            const req = store.delete(id);
+            req.onsuccess = () => resolve();
+            req.onerror = (e) => reject(e);
+        });
+    }
+
+    // ------------------ Gerenciar Sites ------------------
+    async loadManagedSites() {
+        const list = await this.dbGetAll();
+        this.managedSites = list;
+        this.renderManagedSites();
+    }
+
+    renderManagedSites() {
+        const container = document.getElementById('sitesManagerList');
+        if (!container) return;
+        container.innerHTML = '';
+        if (!this.managedSites || this.managedSites.length === 0) {
+            container.innerHTML = '<div style="color:#999">Nenhum site importado.</div>';
+            return;
+        }
+        this.managedSites.forEach(s => {
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.justifyContent = 'space-between';
+            row.style.alignItems = 'center';
+            row.style.padding = '8px';
+            row.style.border = '1px solid #eee';
+            row.style.borderRadius = '6px';
+
+            const info = document.createElement('div');
+            info.innerHTML = `<strong>${s.name}</strong> <div style="font-size:12px;color:#666">${s.files.length} arquivo(s)</div>`;
+
+            const actions = document.createElement('div');
+            actions.style.display = 'flex'; actions.style.gap = '8px';
+
+            const openBtn = document.createElement('button');
+            openBtn.className = 'button-small';
+            openBtn.textContent = 'Abrir';
+            openBtn.onclick = () => this.openManagedSite(s.id);
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'button-small';
+            editBtn.textContent = 'Editar';
+            editBtn.onclick = () => this.openSiteEditor(s.id);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'button-small delete';
+            delBtn.textContent = 'Deletar';
+            delBtn.onclick = async () => { if (confirm('Deletar site?')) { await this.dbDelete(s.id); await this.loadManagedSites(); }};
+
+            actions.appendChild(openBtn); actions.appendChild(editBtn); actions.appendChild(delBtn);
+
+            row.appendChild(info); row.appendChild(actions);
+            container.appendChild(row);
+        });
+    }
+
+    mimeFromPath(path) {
+        const ext = (path.split('.').pop() || '').toLowerCase();
+        const map = {html:'text/html', htm:'text/html', css:'text/css', js:'application/javascript', png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', svg:'image/svg+xml', ico:'image/x-icon', json:'application/json'};
+        return map[ext] || 'application/octet-stream';
+    }
+
+    async importZipFile(file) {
+        const jszip = window.JSZip;
+        if (!jszip) return alert('JSZip não carregado');
+        const zip = await jszip.loadAsync(file);
+        const files = [];
+        const promises = [];
+        zip.forEach((relativePath, zipEntry) => {
+            promises.push(zipEntry.async('base64').then(b64 => {
+                files.push({ path: relativePath, dataURL: `data:${this.mimeFromPath(relativePath)};base64,${b64}` });
+            }));
+        });
+        await Promise.all(promises);
+        const id = Date.now();
+        const site = { id, name: file.name.replace(/\.(zip)$/i, ''), files, createdAt: new Date().toISOString() };
+        await this.dbPut(site);
+        await this.loadManagedSites();
+    }
+
+    async importHTMLFile(file) {
+        const text = await file.text();
+        const files = [ { path: 'index.html', dataURL: `data:${this.mimeFromPath('index.html')};base64,${btoa(unescape(encodeURIComponent(text)))}` } ];
+        const id = Date.now();
+        const site = { id, name: file.name.replace(/\.(html?|htm)$/i,''), files, createdAt: new Date().toISOString() };
+        await this.dbPut(site);
+        await this.loadManagedSites();
+    }
+
+    async openManagedSite(id) {
+        const site = (this.managedSites || []).find(s => s.id === id);
+        if (!site) return alert('Site não encontrado');
+        // criar blob URLs para todos os arquivos
+        const map = {};
+        for (const f of site.files) {
+            const res = await fetch(f.dataURL);
+            const blob = await res.blob();
+            map[f.path] = URL.createObjectURL(blob);
+        }
+        // pegar index.html
+        let index = site.files.find(x => /index\.html?$/i.test(x.path));
+        if (!index) {
+            index = site.files[0];
+        }
+        const indexText = decodeURIComponent(escape(atob(index.dataURL.split(',')[1])));
+        // substituir referências relativas por blob URLs
+        let processed = indexText;
+        // replace src and href occurrences (simple)
+        Object.keys(map).forEach(p => {
+            const regex = new RegExp(`(["'\(])${p.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}(["'\)])`, 'g');
+            processed = processed.replace(regex, `$1${map[p]}$2`);
+        });
+
+        const frame = document.getElementById('toolFrame');
+        const container = document.getElementById('toolFrameContainer');
+        const title = document.getElementById('toolFrameTitle');
+        if (!frame || !container) return;
+        frame.srcdoc = processed;
+        title.textContent = site.name;
+        container.style.display = '';
+    }
+
+    async openSiteEditor(id) {
+        const site = (this.managedSites || []).find(s => s.id === id);
+        if (!site) return;
+        // abrir modal com primeiro arquivo (index)
+        const f = site.files.find(x => /index\.html?$/i.test(x.path)) || site.files[0];
+        const modal = document.getElementById('siteEditorModal');
+        const title = document.getElementById('siteEditorTitle');
+        const filename = document.getElementById('editorFilename');
+        const content = document.getElementById('editorContent');
+        title.textContent = `Editar: ${site.name}`;
+        filename.value = f.path;
+        content.value = decodeURIComponent(escape(atob(f.dataURL.split(',')[1])));
+        modal.classList.add('active');
+
+        // salvar handler
+        const saveBtn = document.getElementById('saveSiteFileBtn');
+        saveBtn.onclick = async () => {
+            f.dataURL = `data:${this.mimeFromPath(f.path)};base64,${btoa(unescape(encodeURIComponent(content.value)))}`;
+            await this.dbPut(site);
+            await this.loadManagedSites();
+            modal.classList.remove('active');
+        };
+        document.getElementById('closeSiteEditorBtn').onclick = () => modal.classList.remove('active');
     }
 
     initEventListeners() {
@@ -111,6 +302,12 @@ class CentralApp {
         const addToolForm = document.getElementById('addToolForm');
         if (addToolForm) addToolForm.addEventListener('submit', (e) => this.handleAddTool(e));
 
+        // SITES: importar/criar
+        const importBtn = document.getElementById('importSiteBtn');
+        if (importBtn) importBtn.addEventListener('click', (e) => this.handleImportSite(e));
+        const createSiteBtn = document.getElementById('createSiteBtn');
+        if (createSiteBtn) createSiteBtn.addEventListener('click', (e) => this.handleCreateSiteManual(e));
+
         // SEARCH USERS
         document.getElementById('searchUsers').addEventListener('input', (e) => this.filterUsers(e.target.value));
 
@@ -122,6 +319,10 @@ class CentralApp {
         document.querySelector('.modal-close').addEventListener('click', () => this.closeModal());
         document.getElementById('cancelTimeBtn').addEventListener('click', () => this.closeModal());
         document.getElementById('saveTimeBtn').addEventListener('click', () => this.saveLoginTime());
+
+        // site editor modal close/save
+        const siteModalClose = document.querySelector('#siteEditorModal .modal-close');
+        if (siteModalClose) siteModalClose.addEventListener('click', () => document.getElementById('siteEditorModal').classList.remove('active'));
 
         // SIDEBAR TOGGLE
         const sidebarToggle = document.getElementById('sidebarToggle');
@@ -577,6 +778,33 @@ class CentralApp {
             const container = document.getElementById('toolsList');
             if (container) container.innerHTML = '<div style="color:#999">Nenhum manifest de ferramentas (Ferramentas/manifest.json)</div>';
         }
+    }
+
+    // ------------------ HANDLERS DE UI SITES ------------------
+    async handleImportSite(e) {
+        e.preventDefault();
+        const input = document.getElementById('siteFileInput');
+        if (!input || !input.files || input.files.length === 0) return alert('Selecione um arquivo ZIP ou HTML');
+        const file = input.files[0];
+        if (/\.zip$/i.test(file.name)) {
+            await this.importZipFile(file);
+        } else if (/\.html?$|\.htm$/i.test(file.name)) {
+            await this.importHTMLFile(file);
+        } else {
+            alert('Tipo de arquivo não suportado');
+        }
+        input.value = '';
+    }
+
+    async handleCreateSiteManual(e) {
+        e.preventDefault();
+        const name = prompt('Nome do site:');
+        if (!name) return;
+        const id = Date.now();
+        const files = [ { path: 'index.html', dataURL: `data:text/html;base64,${btoa('<!doctype html><html><head><meta charset="utf-8"><title>'+name+'</title></head><body><h1>'+name+'</h1><p>Site criado manualmente.</p></body></html>')}` } ];
+        const site = { id, name, files, createdAt: new Date().toISOString() };
+        await this.dbPut(site);
+        await this.loadManagedSites();
     }
 
     renderToolsList() {

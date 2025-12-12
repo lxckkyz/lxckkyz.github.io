@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Central de Autenticação</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body>
     <!-- PÁGINA DE LOGIN -->
@@ -239,17 +240,49 @@
                         <div class="form-group">
                             <p>Se o arquivo <strong>Ferramentas/manifest.json</strong> não estiver disponível no GitHub Pages, registre ferramentas aqui para uso local no dashboard.</p>
                         </div>
-                        <form id="addToolForm" class="user-form" style="margin-bottom:12px">
-                            <div style="display:flex; gap:8px;">
-                                <input id="toolName" class="input-field" placeholder="Nome da ferramenta" required style="flex:1">
-                                <input id="toolPath" class="input-field" placeholder="Caminho/URL (ex: Ferramentas/sites1/index.html)" required style="flex:2">
-                                <button class="button-submit" style="width:160px">Adicionar</button>
+                        <div class="form-group">
+                            <label>Importar site (ZIP) ou arquivo HTML:</label>
+                            <input id="siteFileInput" type="file" accept=".zip,.html,.htm" class="input-field">
+                            <div style="margin-top:8px; display:flex; gap:8px;">
+                                <button id="importSiteBtn" class="button-submit">Importar</button>
+                                <button id="createSiteBtn" class="button-secondary">Criar Site Manual</button>
                             </div>
-                        </form>
-                        <div id="toolsList" style="display:flex; gap:12px; flex-wrap:wrap"></div>
+                        </div>
+                        <div style="margin-top:12px">
+                            <h4>Sites Gerenciados</h4>
+                            <div id="sitesManagerList" style="display:flex; gap:12px; flex-direction:column"></div>
+                        </div>
+                        <div style="margin-top:12px">
+                            <h4>Ferramentas/manifest (fallback)</h4>
+                            <div id="toolsList" style="display:flex; gap:12px; flex-wrap:wrap"></div>
+                        </div>
                         <div id="toolFrameContainer" style="margin-top:20px; display:none">
                             <h4 id="toolFrameTitle"></h4>
                             <iframe id="toolFrame" src="" style="width:100%; height:600px; border:1px solid #ddd; border-radius:8px"></iframe>
+                        </div>
+                    </div>
+
+                    <!-- MODAL EDITOR DE SITE -->
+                    <div id="siteEditorModal" class="modal">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="siteEditorTitle">Editor de Site</h3>
+                                <button class="modal-close">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label for="editorFilename">Arquivo:</label>
+                                    <input id="editorFilename" class="input-field" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="editorContent">Conteúdo (HTML/CSS/JS):</label>
+                                    <textarea id="editorContent" class="input-field" style="height:300px; font-family:monospace"></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button id="saveSiteFileBtn" class="button-submit">Salvar</button>
+                                <button id="closeSiteEditorBtn" class="button-secondary">Fechar</button>
+                            </div>
                         </div>
                     </div>
 

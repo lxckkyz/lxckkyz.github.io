@@ -327,6 +327,8 @@ class CentralApp {
         // SIDEBAR TOGGLE
         const sidebarToggle = document.getElementById('sidebarToggle');
         if (sidebarToggle) sidebarToggle.addEventListener('click', () => this.toggleSidebar());
+        // init admin settings form listener
+        this.initAdminSettings();
     }
 
     toggleSidebar() {
@@ -360,6 +362,30 @@ class CentralApp {
         this.loadPlansTable();
         this.loadToolsManifest();
         this.renderStoredTools();
+
+        // ajustar UI conforme permissão
+        this.restrictUIByRole();
+        // mostrar seção de admin nas configurações se for admin
+        const adminSection = document.getElementById('adminSettingsSection');
+        if (adminSection) adminSection.style.display = (this.state.currentUser && this.state.currentUser.isAdmin) ? '' : 'none';
+        // se usuário não for admin, forçar abrir a aba de ferramentas
+        if (!(this.state.currentUser && this.state.currentUser.isAdmin)) {
+            const toolsBtn = document.querySelector('.menu-item[data-tab="tools"]');
+            if (toolsBtn) this.switchTab(toolsBtn);
+        }
+    }
+
+    restrictUIByRole() {
+        const isAdmin = !!(this.state.currentUser && this.state.currentUser.isAdmin);
+        // esconder elementos com data-role="admin" quando não for admin
+        document.querySelectorAll('[data-role="admin"]').forEach(el => {
+            if (!isAdmin) el.style.display = 'none'; else el.style.display = '';
+        });
+        // esconder admin-only action buttons in tables (extra safety)
+        if (!isAdmin) {
+            // remove edit/delete buttons for users and plans from DOM by hiding
+            document.querySelectorAll('.button-small.delete, .button-small[onclick*="editPlan"], .button-small[onclick*="editLoginTime"]').forEach(b => b.style.display = 'none');
+        }
     }
 
     // ==================== LOGIN ====================
@@ -422,6 +448,13 @@ class CentralApp {
 
         const errorDiv = document.getElementById('createError');
         const successDiv = document.getElementById('createSuccess');
+
+        // somente admin pode criar usuários
+        if (!(this.state.currentUser && this.state.currentUser.isAdmin)) {
+            errorDiv.textContent = 'Apenas administradores podem criar usuários.';
+            errorDiv.classList.add('show');
+            return;
+        }
 
         errorDiv.classList.remove('show');
         successDiv.classList.remove('show');
@@ -547,6 +580,11 @@ class CentralApp {
     }
 
     deleteUser(username) {
+        // somente admin
+        if (!(this.state.currentUser && this.state.currentUser.isAdmin)) {
+            alert('Apenas administradores podem deletar usuários.');
+            return;
+        }
         if (confirm(`Tem certeza que deseja deletar o usuário "${username}"?`)) {
             this.state.users = this.state.users.filter(u => u.username !== username);
             this.state.saveUsers();
@@ -585,6 +623,40 @@ class CentralApp {
 
         const dataSize = (new Blob([JSON.stringify(this.state.users)]).size / 1024).toFixed(2);
         document.getElementById('spaceUsed').textContent = `${dataSize} KB`;
+    }
+
+    // ==================== ADMIN PASSWORD ====================
+    initAdminSettings() {
+        const form = document.getElementById('changeAdminForm');
+        if (form) form.addEventListener('submit', (e) => this.handleChangeAdminPassword(e));
+    }
+
+    handleChangeAdminPassword(e) {
+        e.preventDefault();
+        if (!(this.state.currentUser && this.state.currentUser.isAdmin)) return alert('Apenas admin');
+        const newPass = document.getElementById('newAdminPassword').value;
+        const confirmPass = document.getElementById('confirmAdminPassword').value;
+        const msg = document.getElementById('adminChangeMsg');
+        if (!newPass || newPass.length < 4) {
+            msg.textContent = 'Senha deve ter pelo menos 4 caracteres';
+            msg.classList.add('show');
+            return;
+        }
+        if (newPass !== confirmPass) {
+            msg.textContent = 'Senhas não coincidem';
+            msg.classList.add('show');
+            return;
+        }
+        // encontrar usuário admin
+        const admin = this.state.users.find(u => u.isAdmin);
+        if (admin) {
+            admin.password = newPass;
+            this.state.saveUsers();
+            msg.textContent = 'Senha do admin atualizada.';
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 2000);
+            document.getElementById('changeAdminForm').reset();
+        }
     }
 
     // ==================== PLANOS ====================
@@ -628,6 +700,13 @@ class CentralApp {
         const value = parseInt(document.getElementById('planValue').value) || 1;
         const unit = document.getElementById('planUnit').value;
         const msg = document.getElementById('planMsg');
+
+        // apenas admin pode criar/editar planos
+        if (!(this.state.currentUser && this.state.currentUser.isAdmin)) {
+            msg.textContent = 'Apenas administradores podem gerenciar planos.';
+            msg.classList.add('show');
+            return;
+        }
 
         if (!name) {
             msg.textContent = 'Nome do plano é obrigatório';
@@ -753,6 +832,10 @@ class CentralApp {
     }
 
     deletePlan(id) {
+        if (!(this.state.currentUser && this.state.currentUser.isAdmin)) {
+            alert('Apenas administradores podem deletar planos.');
+            return;
+        }
         if (!confirm('Deletar este plano?')) return;
         this.state.plans = this.state.plans.filter(p => p.id !== id);
         this.state.savePlans();

@@ -135,21 +135,10 @@
                             >
                         </div>
                             <div class="form-group">
-                                <label for="planSelect">Plano de Login:</label>
-                                <select id="planSelect" class="input-field">
+                                <label for="planSelect">Plano de Login (obrigatório):</label>
+                                <select id="planSelect" class="input-field" required>
                                     <!-- será preenchido via JS com os planos disponíveis -->
                                 </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="newLoginTime">Ou tempo customizado (minutos):</label>
-                                <input 
-                                    type="number" 
-                                    id="newLoginTime" 
-                                    placeholder="Ex: 30" 
-                                    value="30" 
-                                    min="1"
-                                    class="input-field"
-                                >
                             </div>
                         <div id="createError" class="error-message"></div>
                         <div id="createSuccess" class="success-message"></div>
@@ -213,7 +202,10 @@
                                 </div>
                             </div>
                             <div id="planMsg" class="success-message"></div>
-                            <button type="submit" class="button-submit">Criar Plano</button>
+                            <div style="display:flex; gap:8px; align-items:center">
+                                <button id="createPlanBtn" type="submit" class="button-submit">Criar Plano</button>
+                                <button id="cancelPlanBtn" type="button" class="button-secondary" style="display:none">Cancelar Edição</button>
+                            </div>
                         </form>
 
                         <div style="margin-top:20px">
@@ -231,8 +223,15 @@
                             <h3>Ferramentas / Sites</h3>
                         </div>
                         <div class="form-group">
-                            <p>Coloque pastas dentro de <strong>Ferramentas/</strong> e registre-as em <strong>Ferramentas/manifest.json</strong>. Clique para abrir dentro do dashboard.</p>
+                            <p>Se o arquivo <strong>Ferramentas/manifest.json</strong> não estiver disponível no GitHub Pages, registre ferramentas aqui para uso local no dashboard.</p>
                         </div>
+                        <form id="addToolForm" class="user-form" style="margin-bottom:12px">
+                            <div style="display:flex; gap:8px;">
+                                <input id="toolName" class="input-field" placeholder="Nome da ferramenta" required style="flex:1">
+                                <input id="toolPath" class="input-field" placeholder="Caminho/URL (ex: Ferramentas/sites1/index.html)" required style="flex:2">
+                                <button class="button-submit" style="width:160px">Adicionar</button>
+                            </div>
+                        </form>
                         <div id="toolsList" style="display:flex; gap:12px; flex-wrap:wrap"></div>
                         <div id="toolFrameContainer" style="margin-top:20px; display:none">
                             <h4 id="toolFrameTitle"></h4>

@@ -87,6 +87,17 @@ class CentralApp {
         const createPlanForm = document.getElementById('createPlanForm');
         if (createPlanForm) createPlanForm.addEventListener('submit', (e) => this.handleCreatePlan(e));
 
+        const cancelPlanBtn = document.getElementById('cancelPlanBtn');
+        if (cancelPlanBtn) cancelPlanBtn.addEventListener('click', () => this.cancelPlanEdit());
+
+        // remover estilo inválido quando selecionar um plano
+        const planSelect = document.getElementById('planSelect');
+        if (planSelect) planSelect.addEventListener('change', (e) => e.target.classList.remove('invalid'));
+
+        // FERRAMENTAS (adicionar via dashboard)
+        const addToolForm = document.getElementById('addToolForm');
+        if (addToolForm) addToolForm.addEventListener('submit', (e) => this.handleAddTool(e));
+
         // SEARCH USERS
         document.getElementById('searchUsers').addEventListener('input', (e) => this.filterUsers(e.target.value));
 
@@ -122,6 +133,7 @@ class CentralApp {
         this.populatePlanSelect();
         this.loadPlansTable();
         this.loadToolsManifest();
+        this.renderStoredTools();
     }
 
     // ==================== LOGIN ====================
@@ -158,13 +170,18 @@ class CentralApp {
         e.preventDefault();
         const username = document.getElementById('newUsername').value.trim();
         const password = document.getElementById('newPassword').value;
-        const selectedPlanId = document.getElementById('planSelect') ? document.getElementById('planSelect').value : 'custom';
-        const customTime = parseInt(document.getElementById('newLoginTime').value) || 30;
-        let loginTime = customTime;
-        if (selectedPlanId && selectedPlanId !== 'custom') {
-            const plan = this.state.plans.find(p => String(p.id) === String(selectedPlanId));
-            if (plan) loginTime = this.convertPlanToMinutes(plan);
+        const selectedPlanId = document.getElementById('planSelect') ? document.getElementById('planSelect').value : '';
+        let loginTime = 0;
+        if (!selectedPlanId) {
+            const errorDiv = document.getElementById('createError');
+            errorDiv.textContent = 'Selecione um plano para o usuário.';
+            errorDiv.classList.add('show');
+            const sel = document.getElementById('planSelect');
+            if (sel) sel.classList.add('invalid');
+            return;
         }
+        const plan = this.state.plans.find(p => String(p.id) === String(selectedPlanId));
+        if (plan) loginTime = this.convertPlanToMinutes(plan);
 
         const errorDiv = document.getElementById('createError');
         const successDiv = document.getElementById('createSuccess');
@@ -206,7 +223,6 @@ class CentralApp {
         successDiv.classList.add('show');
 
         document.getElementById('createUserForm').reset();
-        document.getElementById('newLoginTime').value = '30';
 
         // repopular select caso tenha planos novos
         this.populatePlanSelect();
@@ -352,8 +368,8 @@ class CentralApp {
         if (!select) return;
         select.innerHTML = '';
         const placeholder = document.createElement('option');
-        placeholder.value = 'custom';
-        placeholder.textContent = '— Selecionar plano (ou usar custom) —';
+        placeholder.value = '';
+        placeholder.textContent = '— Selecionar plano —';
         select.appendChild(placeholder);
 
         this.state.plans.forEach(p => {
@@ -362,11 +378,6 @@ class CentralApp {
             opt.textContent = `${p.name} (${p.value} ${p.unit})`;
             select.appendChild(opt);
         });
-
-        const customOpt = document.createElement('option');
-        customOpt.value = 'custom';
-        customOpt.textContent = 'Custom (minutos)';
-        select.appendChild(customOpt);
     }
 
     handleCreatePlan(e) {
@@ -382,15 +393,61 @@ class CentralApp {
             return;
         }
 
-        const plan = { id: Date.now(), name, value, unit };
-        this.state.plans.push(plan);
-        this.state.savePlans();
-        msg.textContent = `Plano "${name}" criado.`;
-        msg.classList.add('show');
+        const form = document.getElementById('createPlanForm');
+        const editId = form.dataset.editId;
+        if (editId) {
+            // editar plano existente
+            const plan = this.state.plans.find(p => String(p.id) === String(editId));
+            if (plan) {
+                plan.name = name;
+                plan.value = value;
+                plan.unit = unit;
+                this.state.savePlans();
+                msg.textContent = `Plano "${name}" atualizado.`;
+                msg.classList.add('show');
+                delete form.dataset.editId;
+                const createBtn = document.getElementById('createPlanBtn');
+                if (createBtn) createBtn.textContent = 'Criar Plano';
+                const cancelBtn = document.getElementById('cancelPlanBtn');
+                if (cancelBtn) cancelBtn.style.display = 'none';
+            }
+        } else {
+            const plan = { id: Date.now(), name, value, unit };
+            this.state.plans.push(plan);
+            this.state.savePlans();
+            msg.textContent = `Plano "${name}" criado.`;
+            msg.classList.add('show');
+        }
+
         document.getElementById('createPlanForm').reset();
         this.populatePlanSelect();
         this.loadPlansTable();
         setTimeout(() => msg.classList.remove('show'), 2000);
+    }
+
+    editPlan(id) {
+        const plan = this.state.plans.find(p => p.id === id);
+        if (!plan) return;
+        document.getElementById('planName').value = plan.name;
+        document.getElementById('planValue').value = plan.value;
+        document.getElementById('planUnit').value = plan.unit;
+        const form = document.getElementById('createPlanForm');
+        form.dataset.editId = plan.id;
+        const createBtn = document.getElementById('createPlanBtn');
+        if (createBtn) createBtn.textContent = 'Salvar Alterações';
+        const cancelBtn = document.getElementById('cancelPlanBtn');
+        if (cancelBtn) cancelBtn.style.display = '';
+    }
+
+    cancelPlanEdit() {
+        const form = document.getElementById('createPlanForm');
+        if (!form) return;
+        delete form.dataset.editId;
+        form.reset();
+        const createBtn = document.getElementById('createPlanBtn');
+        if (createBtn) createBtn.textContent = 'Criar Plano';
+        const cancelBtn = document.getElementById('cancelPlanBtn');
+        if (cancelBtn) cancelBtn.style.display = 'none';
     }
 
     loadPlansTable() {
@@ -407,11 +464,50 @@ class CentralApp {
                 <td><strong>${p.name}</strong></td>
                 <td>${p.value} ${p.unit}</td>
                 <td>
+                    <button class="button-small" onclick="app.editPlan(${p.id})">✏️ Editar</button>
                     <button class="button-small delete" onclick="app.deletePlan(${p.id})">🗑️ Deletar</button>
                 </td>
             `;
             tbody.appendChild(tr);
         });
+    }
+
+    // ==================== FERRAMENTAS LOCAIS (fallback) ====================
+    handleAddTool(e) {
+        e.preventDefault();
+        const name = document.getElementById('toolName').value.trim();
+        const path = document.getElementById('toolPath').value.trim();
+        if (!name || !path) return;
+        const stored = localStorage.getItem('localTools');
+        const arr = stored ? JSON.parse(stored) : [];
+        arr.push({ id: Date.now(), name, path, local: true });
+        localStorage.setItem('localTools', JSON.stringify(arr));
+        document.getElementById('addToolForm').reset();
+        this.renderStoredTools();
+    }
+
+    renderStoredTools() {
+        const stored = localStorage.getItem('localTools');
+        const arr = stored ? JSON.parse(stored) : [];
+        if (!arr || arr.length === 0) return;
+        // merge with existing tools (from manifest) when rendering
+        this.tools = this.tools || [];
+        // do not duplicate if already present
+        arr.forEach(a => {
+            if (!this.tools.find(t => t.path === a.path && t.name === a.name)) this.tools.push(a);
+        });
+        this.renderToolsList();
+    }
+
+    // permitir remover ferramentas locais
+    removeLocalTool(id) {
+        const stored = localStorage.getItem('localTools');
+        const arr = stored ? JSON.parse(stored) : [];
+        const filtered = arr.filter(x => x.id !== id);
+        localStorage.setItem('localTools', JSON.stringify(filtered));
+        // atualizar lista no dashboard
+        this.tools = (this.tools || []).filter(t => !(t.id === id));
+        this.renderToolsList();
     }
 
     deletePlan(id) {
@@ -429,6 +525,12 @@ class CentralApp {
             if (!res.ok) throw new Error('Manifest não encontrado');
             const json = await res.json();
             this.tools = Array.isArray(json) ? json : (json.tools || []);
+            // also merge localTools (if any)
+            const stored = localStorage.getItem('localTools');
+            const arr = stored ? JSON.parse(stored) : [];
+            arr.forEach(a => {
+                if (!this.tools.find(t => t.path === a.path && t.name === a.name)) this.tools.push(a);
+            });
             this.renderToolsList();
         } catch (err) {
             const container = document.getElementById('toolsList');
@@ -445,13 +547,28 @@ class CentralApp {
             return;
         }
         this.tools.forEach(t => {
+            const wrap = document.createElement('div');
+            wrap.style.display = 'inline-flex';
+            wrap.style.gap = '8px';
+            wrap.style.alignItems = 'center';
+
             const b = document.createElement('button');
             b.className = 'menu-item';
-            b.style.display = 'inline-flex';
-            b.style.alignItems = 'center';
             b.textContent = t.name || t.id || t.path;
             b.onclick = () => this.openTool(t.path, t.name || t.path);
-            container.appendChild(b);
+
+            wrap.appendChild(b);
+
+            // se a ferramenta tiver um id (local), permitir remoção
+            if (t.local) {
+                const del = document.createElement('button');
+                del.className = 'button-small delete';
+                del.textContent = '🗑️';
+                del.onclick = (ev) => { ev.stopPropagation(); this.removeLocalTool(t.id); };
+                wrap.appendChild(del);
+            }
+
+            container.appendChild(wrap);
         });
     }
 

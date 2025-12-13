@@ -51,52 +51,22 @@
         </div>
     </section>
 
-    <!-- SEÇÃO CONTA (LOGIN/REGISTRO) -->
+    <!-- SEÇÃO CONTA -->
     <section id="contaSection" class="section">
         <div class="container">
-            <div class="conta-grid">
-                <!-- LOGIN USUÁRIO COMUM -->
-                <div class="auth-box">
-                    <h2>Login de Usuário</h2>
-                    <form id="loginForm" class="form">
-                        <input type="email" id="loginEmail" placeholder="Email" required>
-                        <input type="password" id="loginPassword" placeholder="Senha" required>
-                        <button type="submit" class="btn btn-primary">Entrar</button>
-                        <p id="loginMsg" class="msg"></p>
-                    </form>
+            <!-- MEUS PEDIDOS (Usuário logado) -->
+            <div id="meusPedidosBox" class="auth-box full-width" style="display:none;">
+                <h2>Meus Pedidos</h2>
+                <div id="meusPedidosList" class="pedidos-list">
+                    <!-- Preenchido por JavaScript -->
                 </div>
+            </div>
 
-                <!-- REGISTRO USUÁRIO -->
-                <div class="auth-box">
-                    <h2>Registrar Novo Usuário</h2>
-                    <form id="registroForm" class="form">
-                        <input type="text" id="registroNome" placeholder="Nome completo" required>
-                        <input type="email" id="registroEmail" placeholder="Email" required>
-                        <input type="password" id="registroSenha" placeholder="Senha (mín. 6 caracteres)" required>
-                        <input type="password" id="registroConfirm" placeholder="Confirmar senha" required>
-                        <button type="submit" class="btn btn-primary">Registrar</button>
-                        <p id="registroMsg" class="msg"></p>
-                    </form>
-                </div>
-
-                <!-- LOGIN ADMIN -->
-                <div class="auth-box">
-                    <h2>Login Admin</h2>
-                    <form id="loginAdminForm" class="form">
-                        <input type="email" id="loginAdminEmail" placeholder="Email Admin" required>
-                        <input type="password" id="loginAdminPassword" placeholder="Senha Admin" required>
-                        <button type="submit" class="btn btn-primary">Entrar como Admin</button>
-                        <p id="loginAdminMsg" class="msg"></p>
-                    </form>
-                </div>
-
-                <!-- MEUS PEDIDOS (Usuário logado) -->
-                <div id="meusPedidosBox" class="auth-box" style="display:none;">
-                    <h2>Meus Pedidos</h2>
-                    <div id="meusPedidosList" class="pedidos-list">
-                        <!-- Preenchido por JavaScript -->
-                    </div>
-                </div>
+            <!-- BOTÕES DE ACESSO (Não logado) -->
+            <div id="loginButtonsContainer" class="login-buttons-container">
+                <button class="btn btn-large btn-primary" onclick="abrirLoginModal('login')">🔑 Login de Usuário</button>
+                <button class="btn btn-large btn-secondary" onclick="abrirLoginModal('registro')">✍️ Registrar Novo Usuário</button>
+                <button class="btn btn-large btn-danger" onclick="abrirLoginModal('admin')">👨‍💼 Login Admin</button>
             </div>
         </div>
     </section>
@@ -179,9 +149,61 @@
         </div>
     </div>
 
+    <!-- MODAL: LOGIN UNIFICADO -->
+    <div id="loginModal" class="modal" style="display:none;">
+        <div class="modal-content modal-login">
+            <button class="modal-close" onclick="fecharLoginModal()">✕</button>
+            
+            <div class="login-tabs">
+                <button class="login-tab-btn active" data-tab="login">🔑 Login</button>
+                <button class="login-tab-btn" data-tab="registro">✍️ Registrar</button>
+                <button class="login-tab-btn" data-tab="admin">👨‍💼 Admin</button>
+            </div>
+
+            <!-- TAB: LOGIN DE USUÁRIO -->
+            <div id="loginTab" class="login-tab-content active">
+                <h2>Bem-vindo de Volta!</h2>
+                <p class="tab-description">Faça login com sua conta para acessar seus pedidos</p>
+                <form id="loginForm" class="form">
+                    <input type="email" id="loginEmail" placeholder="Email" required>
+                    <input type="password" id="loginPassword" placeholder="Senha" required>
+                    <button type="submit" class="btn btn-primary btn-full">Entrar</button>
+                    <p id="loginMsg" class="msg"></p>
+                </form>
+            </div>
+
+            <!-- TAB: REGISTRO -->
+            <div id="registroTab" class="login-tab-content">
+                <h2>Crie sua Conta</h2>
+                <p class="tab-description">Registre-se para começar a fazer compras</p>
+                <form id="registroForm" class="form">
+                    <input type="text" id="registroNome" placeholder="Nome completo" required>
+                    <input type="email" id="registroEmail" placeholder="Email" required>
+                    <input type="password" id="registroSenha" placeholder="Senha (mín. 6 caracteres)" required>
+                    <input type="password" id="registroConfirm" placeholder="Confirmar senha" required>
+                    <button type="submit" class="btn btn-primary btn-full">Registrar</button>
+                    <p id="registroMsg" class="msg"></p>
+                </form>
+            </div>
+
+            <!-- TAB: ADMIN -->
+            <div id="adminTab" class="login-tab-content">
+                <h2>Acesso Administrativo</h2>
+                <p class="tab-description">Credenciais de administrador: admin@loja.com / admin123</p>
+                <form id="loginAdminForm" class="form">
+                    <input type="email" id="loginAdminEmail" placeholder="Email Admin" required>
+                    <input type="password" id="loginAdminPassword" placeholder="Senha Admin" required>
+                    <button type="submit" class="btn btn-primary btn-full">Entrar como Admin</button>
+                    <p id="loginAdminMsg" class="msg"></p>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: CHECKOUT -->
     <div id="checkoutModal" class="modal" style="display:none;">
         <div class="modal-content">
+            <button class="modal-close" onclick="fecharCheckout()">✕</button>
             <h2>Finalizar Compra</h2>
             <form id="checkoutForm" class="form">
                 <h3>Dados do Cliente</h3>
@@ -203,8 +225,7 @@
                     <p id="checkoutProvedor"></p>
                 </div>
 
-                <button type="submit" class="btn btn-primary">Confirmar Pagamento</button>
-                <button type="button" class="btn btn-secondary" onclick="fecharCheckout()">Cancelar</button>
+                <button type="submit" class="btn btn-primary btn-full">Confirmar Pagamento</button>
                 <p id="checkoutMsg" class="msg"></p>
             </form>
         </div>

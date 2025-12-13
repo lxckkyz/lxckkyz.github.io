@@ -310,6 +310,7 @@ function handleLoginForm(e) {
     salvarDados();
     mostrarMensagem('Login realizado com sucesso!', 'success', msgEl);
     atualizarUI();
+    fecharLoginModal();
     setTimeout(() => msgEl.textContent = '', 3000);
 }
 
@@ -359,6 +360,7 @@ function handleRegistroForm(e) {
     mostrarMensagem('Cadastro realizado com sucesso!', 'success', msgEl);
     document.getElementById('registroForm').reset();
     atualizarUI();
+    fecharLoginModal();
     setTimeout(() => msgEl.textContent = '', 3000);
 }
 
@@ -387,6 +389,7 @@ function handleLoginAdminForm(e) {
     salvarDados();
     mostrarMensagem('Login admin realizado com sucesso!', 'success', msgEl);
     atualizarUI();
+    fecharLoginModal();
     setTimeout(() => msgEl.textContent = '', 3000);
 }
 
@@ -396,6 +399,71 @@ function handleLogout() {
     salvarDados();
     atualizarUI();
     mostrarSecao('loja');
+}
+
+// ========================================
+// MODAL DE LOGIN UNIFICADO
+// ========================================
+
+/**
+ * Abre o modal de login e exibe a aba especificada
+ */
+function abrirLoginModal(aba = 'login') {
+    const modal = document.getElementById('loginModal');
+    const tabs = document.querySelectorAll('.login-tab-btn');
+    const contents = document.querySelectorAll('.login-tab-content');
+
+    // Resetar todas as abas
+    tabs.forEach(tab => tab.classList.remove('active'));
+    contents.forEach(content => content.classList.remove('active'));
+
+    // Ativar aba específica
+    const abaMapeada = aba === 'registro' ? 'registro' : aba === 'admin' ? 'admin' : 'login';
+    document.querySelector(`[data-tab="${abaMapeada}"]`).classList.add('active');
+    document.getElementById(abaMapeada === 'login' ? 'loginTab' : abaMapeada === 'registro' ? 'registroTab' : 'adminTab').classList.add('active');
+
+    // Limpar mensagens anteriores
+    document.getElementById('loginMsg').textContent = '';
+    document.getElementById('registroMsg').textContent = '';
+    document.getElementById('loginAdminMsg').textContent = '';
+
+    // Mostrar modal
+    modal.style.display = 'flex';
+}
+
+/**
+ * Fecha o modal de login
+ */
+function fecharLoginModal() {
+    document.getElementById('loginModal').style.display = 'none';
+}
+
+/**
+ * Event listeners para abas do login modal
+ */
+function inicializarTabasLogin() {
+    const tabBtns = document.querySelectorAll('.login-tab-btn');
+    
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const abaAlvo = btn.dataset.tab;
+
+            // Remover ativo de todos os botões e conteúdos
+            tabBtns.forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.login-tab-content').forEach(c => c.classList.remove('active'));
+
+            // Ativar selecionado
+            btn.classList.add('active');
+            document.getElementById(abaAlvo + 'Tab').classList.add('active');
+        });
+    });
+
+    // Fechar modal ao clicar fora
+    document.getElementById('loginModal').addEventListener('click', (e) => {
+        if (e.target.id === 'loginModal') {
+            fecharLoginModal();
+        }
+    });
 }
 
 // ========================================
@@ -1052,6 +1120,7 @@ function atualizarUI() {
     const logoutBtn = document.getElementById('logoutBtn');
     const adminLinks = document.querySelectorAll('.admin-only');
     const meusPedidosBox = document.getElementById('meusPedidosBox');
+    const loginButtonsContainer = document.getElementById('loginButtonsContainer');
     const finalizarBtn = document.getElementById('finalizarCompraBtn');
 
     if (usuarioEstaLogado()) {
@@ -1066,12 +1135,14 @@ function atualizarUI() {
         }
 
         finalizarBtn.style.display = 'block';
+        if (loginButtonsContainer) loginButtonsContainer.style.display = 'none';
     } else {
         userDisplay.textContent = 'Não autenticado';
         logoutBtn.style.display = 'none';
         adminLinks.forEach(link => link.style.display = 'none');
         if (meusPedidosBox) meusPedidosBox.style.display = 'none';
         finalizarBtn.style.display = 'none';
+        if (loginButtonsContainer) loginButtonsContainer.style.display = 'grid';
         appState.carrinho = [];
         atualizarCarrinho();
     }
@@ -1139,6 +1210,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Carrinho
     document.getElementById('finalizarCompraBtn').addEventListener('click', abrirCheckout);
+
+    // Inicializar modal de login
+    inicializarTabasLogin();
+
+    // Botões de acesso ao login (quando não logado)
+    const loginButtonsContainer = document.getElementById('loginButtonsContainer');
+    if (loginButtonsContainer) {
+        const botoesLogin = loginButtonsContainer.querySelectorAll('button');
+        botoesLogin.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const texto = e.target.textContent;
+                if (texto.includes('Usuário')) {
+                    abrirLoginModal('login');
+                } else if (texto.includes('Registrar')) {
+                    abrirLoginModal('registro');
+                } else if (texto.includes('Admin')) {
+                    abrirLoginModal('admin');
+                }
+            });
+        });
+    }
 
     // Carregar configurações no painel
     document.getElementById('provedorPagamento').value = appState.configPagamento.provedor || 'stripe';
